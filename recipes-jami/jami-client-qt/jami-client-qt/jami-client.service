@@ -1,0 +1,12 @@
+[Unit]
+Description=Qt client for Jami
+
+[Service]
+Type=simple
+Environment=QT_QPA_PLATFORM=eglfs
+Environment=QT_QPA_EGLFS_NO_LIBINPUT=1
+ExecStart=/usr/bin/jami -d
+User=jami
+
+[Install]
+WantedBy=multi-user.target

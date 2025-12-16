@@ -1,0 +1,92 @@
+From 7e39a53c4cc669f7beff13861d289523a312c28c Mon Sep 17 00:00:00 2001
+From: Thomas Rouleau <thomas.rouleau@savoirfairelinux.com>
+Date: Fri, 14 Jul 2023 16:50:45 -0400
+Subject: [PATCH] Patch: removed reference to Gsettings
+
+Gsettings might be causingf probleme on embedded system
+
+Change-Id: I57e2b252300d0ec31800b5a83f805db5697d89d4
+---
+ src/app/utilsadapter.cpp | 59 +---------------------------------------
+ 1 file changed, 1 insertion(+), 58 deletions(-)
+
+diff --git a/src/app/utilsadapter.cpp b/src/app/utilsadapter.cpp
+index 03c8549e..5aac21f7 100644
+--- a/src/app/utilsadapter.cpp
++++ b/src/app/utilsadapter.cpp
+@@ -645,17 +645,6 @@ UtilsAdapter::luma(const QColor& color) const
+            < 153 /* .6 * 256 */;
+ }
+ 
+-#if __has_include(<gio/gio.h>)
+-void
+-settingsCallback(GSettings* self, gchar* key, gpointer user_data)
+-{
+-    QString keyString = key;
+-    if (keyString == "color-scheme" || keyString == "gtk-theme") {
+-        Q_EMIT((UtilsAdapter*) (user_data))->appThemeChanged();
+-    }
+-}
+-#endif
+-
+ #if defined(WIN32) && __has_include(<winrt/Windows.Foundation.h>)
+ bool
+ readAppsUseLightThemeRegistry(bool getValue)
+@@ -696,53 +685,7 @@ readAppsUseLightThemeRegistry(bool getValue)
+ bool
+ UtilsAdapter::isSystemThemeDark()
+ {
+-#if __has_include(<gio/gio.h>)
+-    if (!settings) {
+-        settings = g_settings_new("org.gnome.desktop.interface");
+-        if (!settings)
+-            return false;
+-        g_signal_connect(settings, "changed", G_CALLBACK(settingsCallback), this);
+-    }
+-    if (!schema) {
+-        g_object_get(settings, "settings-schema", &schema, nullptr);
+-        if (!schema)
+-            return false;
+-    }
+-    std::vector<std::string> keys = {"gtk-color-scheme", "color-scheme", "gtk-theme"};
+-    auto** gtk_keys = g_settings_schema_list_keys(schema);
+-    for (const auto& key : keys) {
+-        auto hasKey = false;
+-        for (int i = 0; gtk_keys[i]; i++) {
+-            if (key == gtk_keys[i]) {
+-                hasKey = true;
+-                break;
+-            }
+-        }
+-        if (hasKey) {
+-            if (auto* valueCstr = g_settings_get_string(settings, key.c_str())) {
+-                QString value = valueCstr;
+-                if (!value.isEmpty()) {
+-                    return value.contains("dark", Qt::CaseInsensitive)
+-                           || value.contains("black", Qt::CaseInsensitive);
+-                }
+-            }
+-        }
+-    }
+-    return false;
+-#else
+-#if defined(WIN32) && __has_include(<winrt/Windows.Foundation.h>)
+-#if WATCHSYSTEMTHEME
+-    if (!settings) {
+-        settings = UISettings();
+-        settings.ColorValuesChanged([this](auto&&...) { Q_EMIT appThemeChanged(); });
+-    }
+-#endif
+-    return readAppsUseLightThemeRegistry(true);
+-#else
+-    qWarning("System theme detection is not implemented or is not supported");
+-    return false;
+-#endif // WIN32
+-#endif // __has_include(<gio/gio.h>)
++return true;
+ }
+ 
+ bool
+-- 
+2.34.1
+

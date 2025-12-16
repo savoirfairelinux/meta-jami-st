@@ -1,0 +1,154 @@
+From 15f4fd328915f248921e94bffd5e4ca90064f8e0 Mon Sep 17 00:00:00 2001
+From: Thomas Rouleau <thomas.rouleau@savoirfairelinux.com>
+Date: Tue, 4 Jul 2023 13:32:12 -0400
+Subject: [PATCH] cmake: add option to disable libx11 dependency
+
+This dependency can be irrelevant on some platforms that don't use
+X11 like embedded systems that do not include an X server.
+
+Change-Id: I6efea38723191aa565817d6de878f4d0e08d31cb
+---
+ CMakeLists.txt               | 22 ++++++++++++++++++----
+ src/app/avadapter.cpp        |  4 ++--
+ src/libclient/CMakeLists.txt |  2 +-
+ src/libclient/avmodel.cpp    |  6 +++---
+ 4 files changed, 24 insertions(+), 10 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5f06f2cb..798a65fe 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -32,10 +32,15 @@ endif()
+ option(WITH_DAEMON_SUBMODULE "Build with daemon submodule" OFF)
+ option(ENABLE_TESTS "Build with tests" OFF)
+ option(WITH_WEBENGINE "Build with WebEngine" ON)
++option(WITH_X11 "Build with x11" ON)
+ if(WITH_WEBENGINE)
+   add_definitions(-DWITH_WEBENGINE)
+ endif()
+ 
++if(WITH_X11)
++  add_definitions(-DWITH_X11)
++endif()
++
+ # init some variables for includes, libs, etc.
+ set(CLIENT_INCLUDE_DIRS, "")
+ set(CLIENT_LINK_DIRS, "")
+@@ -382,14 +387,18 @@ if(MSVC)
+     ${QRENCODE_DIR})
+ elseif (NOT APPLE)
+   list(APPEND COMMON_SOURCES
+-    ${APP_SRC_DIR}/xrectsel.c
+     ${APP_SRC_DIR}/connectivitymonitor.cpp
+     ${APP_SRC_DIR}/dbuserrorhandler.cpp
+     ${APP_SRC_DIR}/updatemanager.cpp)
+   list(APPEND COMMON_HEADERS
+-    ${APP_SRC_DIR}/xrectsel.h
+     ${APP_SRC_DIR}/dbuserrorhandler.h)
+   list(APPEND QT_MODULES DBus)
++  if(WITH_X11)
++    list(APPEND COMMON_SOURCES
++      ${APP_SRC_DIR}/xrectsel.c)
++    list(APPEND COMMON_HEADERS
++      ${APP_SRC_DIR}/xrectsel.h)
++  endif()
+ 
+   find_package(PkgConfig REQUIRED)
+ 
+@@ -434,7 +443,9 @@ elseif (NOT APPLE)
+ 
+   find_library(${LIBCLIENT_NAME} ${LIBCLIENT_NAME} NO_DEFAULT_PATH)
+   find_library(qrencode qrencode)
+-  find_library(X11 X11)
++  if (WITH_X11)
++    find_library(X11 X11)
++  endif()
+ else() # APPLE
+   list(APPEND COMMON_SOURCES
+     ${APP_SRC_DIR}/os/macos/updatemanager.mm
+@@ -576,12 +587,15 @@ elseif (NOT APPLE)
+     ${QT_LIBS}
+     ${LIBCLIENT_NAME}
+     ${qrencode}
+-    ${X11}
+     ${LIBNM_LIBRARIES}
+     ${LIBNOTIFY_LIBRARIES}
+     ${LIBGDKPIXBUF_LIBRARIES}
+     ${GLIB_LIBRARIES}
+     ${GIO_LIBRARIES})
++  if (WITH_X11)
++    list(APPEND CLIENT_LIBS
++    ${X11})
++  endif()
+ 
+   # Installation rules
+   install(
+diff --git a/src/app/avadapter.cpp b/src/app/avadapter.cpp
+index c2c6a902..5280329e 100644
+--- a/src/app/avadapter.cpp
++++ b/src/app/avadapter.cpp
+@@ -24,7 +24,7 @@
+ #include "api/codecmodel.h"
+ #include "api/devicemodel.h"
+ 
+-#ifdef Q_OS_LINUX
++#if defined(Q_OS_LINUX) && defined(WITH_X11)
+ #include "xrectsel.h"
+ #endif
+ 
+@@ -204,7 +204,7 @@ void
+ AvAdapter::shareScreenArea(unsigned x, unsigned y, unsigned width, unsigned height)
+ {
+     muteCamera_ = !isCapturing();
+-#ifdef Q_OS_LINUX
++#if defined(Q_OS_LINUX) && defined(WITH_X11)
+     // xrectsel will freeze all displays too fast so that the call
+     // context menu will not be closed even closed signal is emitted
+     // use timer to wait until popup is closed
+diff --git a/src/libclient/CMakeLists.txt b/src/libclient/CMakeLists.txt
+index eee5d0df..66866f6a 100644
+--- a/src/libclient/CMakeLists.txt
++++ b/src/libclient/CMakeLists.txt
+@@ -482,7 +482,7 @@ foreach(QT_LIB ${QT_LIBS})
+   target_link_libraries(${LIBCLIENT_NAME} ${QT_LIB})
+ endforeach()
+ 
+-if(NOT(APPLE OR MSVC))
++if(NOT(APPLE OR MSVC) AND WITH_X11)
+   pkg_check_modules(XCB xcb IMPORTED_TARGET)
+   target_link_libraries(${LIBCLIENT_NAME} PkgConfig::XCB)
+ endif()
+diff --git a/src/libclient/avmodel.cpp b/src/libclient/avmodel.cpp
+index aa477673..ae17bcdc 100644
+--- a/src/libclient/avmodel.cpp
++++ b/src/libclient/avmodel.cpp
+@@ -50,7 +50,7 @@
+ #include <string>
+ #include <sstream>
+ 
+-#if defined(Q_OS_UNIX) && !defined(__APPLE__)
++#if defined(Q_OS_UNIX) && !defined(__APPLE__) && defined(WITH_X11)
+ #include <xcb/xcb.h>
+ #endif
+ #ifdef WIN32
+@@ -638,7 +638,7 @@ CbEnumAltTab(HWND hwnd, LPARAM lParam)
+ }
+ #endif
+ 
+-#if defined(Q_OS_UNIX) && !defined(__APPLE__)
++#if defined(Q_OS_UNIX) && !defined(__APPLE__) && defined(WITH_X11)
+ static xcb_atom_t
+ getAtom(xcb_connection_t* c, const std::string& atomName)
+ {
+@@ -657,7 +657,7 @@ AVModel::getListWindows() const
+ {
+     QMap<QString, QVariant> ret {};
+ 
+-#if defined(Q_OS_UNIX) && !defined(__APPLE__)
++#if defined(Q_OS_UNIX) && !defined(__APPLE__) && defined(WITH_X11)
+     std::unique_ptr<xcb_connection_t, void (*)(xcb_connection_t*)> c(xcb_connect(nullptr, nullptr),
+                                                                      [](xcb_connection_t* ptr) {
+                                                                          xcb_disconnect(ptr);
+-- 
+2.34.1
+
