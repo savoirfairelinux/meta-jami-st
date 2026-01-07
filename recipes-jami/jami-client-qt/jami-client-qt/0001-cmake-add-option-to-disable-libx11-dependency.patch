@@ -1,50 +1,46 @@
-From 15f4fd328915f248921e94bffd5e4ca90064f8e0 Mon Sep 17 00:00:00 2001
+From 30e93ed5ab6354de57ae4303afc7bbeb862d5f18 Mon Sep 17 00:00:00 2001
 From: Thomas Rouleau <thomas.rouleau@savoirfairelinux.com>
-Date: Tue, 4 Jul 2023 13:32:12 -0400
-Subject: [PATCH] cmake: add option to disable libx11 dependency
+Date: Wed, 7 Jan 2026 09:33:30 +0100
+Subject: [PATCH 1/2] cmake: add option to disable libx11 dependency
 
 This dependency can be irrelevant on some platforms that don't use
 X11 like embedded systems that do not include an X server.
-
-Change-Id: I6efea38723191aa565817d6de878f4d0e08d31cb
 ---
- CMakeLists.txt               | 22 ++++++++++++++++++----
- src/app/avadapter.cpp        |  4 ++--
+ CMakeLists.txt               | 21 ++++++++++++++++++---
+ src/app/avadapter.cpp        |  4 +++-
  src/libclient/CMakeLists.txt |  2 +-
  src/libclient/avmodel.cpp    |  6 +++---
- 4 files changed, 24 insertions(+), 10 deletions(-)
+ 4 files changed, 25 insertions(+), 8 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 5f06f2cb..798a65fe 100644
+index e16e44a8..68159195 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -32,10 +32,15 @@ endif()
- option(WITH_DAEMON_SUBMODULE "Build with daemon submodule" OFF)
- option(ENABLE_TESTS "Build with tests" OFF)
+@@ -28,6 +28,11 @@ include(${CMAKE_SCRIPTS_DIR}/extra_tools.cmake)
+ option(WITH_DAEMON_SUBMODULE "Build with daemon submodule" ON)
+ option(JAMICORE_AS_SUBDIR "Build Jami-core as a subdir dependency" ON)
  option(WITH_WEBENGINE "Build with WebEngine" ON)
 +option(WITH_X11 "Build with x11" ON)
- if(WITH_WEBENGINE)
-   add_definitions(-DWITH_WEBENGINE)
- endif()
- 
 +if(WITH_X11)
 +  add_definitions(-DWITH_X11)
 +endif()
 +
- # init some variables for includes, libs, etc.
- set(CLIENT_INCLUDE_DIRS, "")
- set(CLIENT_LINK_DIRS, "")
-@@ -382,14 +387,18 @@ if(MSVC)
-     ${QRENCODE_DIR})
+ option(ENABLE_LIBWRAP "Enable libwrap (single process mode)" ON)
+ if(NOT (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+     OR ENABLE_LIBWRAP
+@@ -516,16 +521,20 @@ if(MSVC)
+   )
  elseif (NOT APPLE)
    list(APPEND COMMON_SOURCES
 -    ${APP_SRC_DIR}/xrectsel.c
      ${APP_SRC_DIR}/connectivitymonitor.cpp
      ${APP_SRC_DIR}/dbuserrorhandler.cpp
-     ${APP_SRC_DIR}/updatemanager.cpp)
+     ${APP_SRC_DIR}/appversionmanager.cpp
+     ${APP_SRC_DIR}/screencastportal.cpp)
    list(APPEND COMMON_HEADERS
 -    ${APP_SRC_DIR}/xrectsel.h
-     ${APP_SRC_DIR}/dbuserrorhandler.h)
+     ${APP_SRC_DIR}/dbuserrorhandler.h
+     ${APP_SRC_DIR}/screencastportal.h)
    list(APPEND QT_MODULES DBus)
 +  if(WITH_X11)
 +    list(APPEND COMMON_SOURCES
@@ -53,26 +49,20 @@ index 5f06f2cb..798a65fe 100644
 +      ${APP_SRC_DIR}/xrectsel.h)
 +  endif()
  
-   find_package(PkgConfig REQUIRED)
- 
-@@ -434,7 +443,9 @@ elseif (NOT APPLE)
+   pkg_check_modules(GLIB REQUIRED glib-2.0)
+   if(GLIB_FOUND)
+@@ -568,7 +577,9 @@ elseif (NOT APPLE)
+   set(JAMI_DATA_PREFIX "${CMAKE_INSTALL_PREFIX}/share")
  
    find_library(${LIBCLIENT_NAME} ${LIBCLIENT_NAME} NO_DEFAULT_PATH)
-   find_library(qrencode qrencode)
 -  find_library(X11 X11)
 +  if (WITH_X11)
 +    find_library(X11 X11)
 +  endif()
  else() # APPLE
    list(APPEND COMMON_SOURCES
-     ${APP_SRC_DIR}/os/macos/updatemanager.mm
-@@ -576,12 +587,15 @@ elseif (NOT APPLE)
-     ${QT_LIBS}
-     ${LIBCLIENT_NAME}
-     ${qrencode}
--    ${X11}
-     ${LIBNM_LIBRARIES}
-     ${LIBNOTIFY_LIBRARIES}
+     ${APP_SRC_DIR}/os/macos/appversionmanager.mm
+@@ -773,6 +784,10 @@ elseif (NOT APPLE)
      ${LIBGDKPIXBUF_LIBRARIES}
      ${GLIB_LIBRARIES}
      ${GIO_LIBRARIES})
@@ -81,22 +71,23 @@ index 5f06f2cb..798a65fe 100644
 +    ${X11})
 +  endif()
  
-   # Installation rules
    install(
+     TARGETS ${PROJECT_NAME}
 diff --git a/src/app/avadapter.cpp b/src/app/avadapter.cpp
-index c2c6a902..5280329e 100644
+index a1de2f91..02d640f8 100644
 --- a/src/app/avadapter.cpp
 +++ b/src/app/avadapter.cpp
-@@ -24,7 +24,7 @@
- #include "api/codecmodel.h"
- #include "api/devicemodel.h"
+@@ -23,7 +23,9 @@
  
--#ifdef Q_OS_LINUX
-+#if defined(Q_OS_LINUX) && defined(WITH_X11)
+ #ifdef Q_OS_LINUX
+ #include "screencastportal.h"
++#ifdef WITH_X11
  #include "xrectsel.h"
++#endif
+ #ifndef ENABLE_LIBWRAP
+ #include <sys/prctl.h>
  #endif
- 
-@@ -204,7 +204,7 @@ void
+@@ -306,7 +308,7 @@ void
  AvAdapter::shareScreenArea(unsigned x, unsigned y, unsigned width, unsigned height)
  {
      muteCamera_ = !isCapturing();
@@ -106,10 +97,10 @@ index c2c6a902..5280329e 100644
      // context menu will not be closed even closed signal is emitted
      // use timer to wait until popup is closed
 diff --git a/src/libclient/CMakeLists.txt b/src/libclient/CMakeLists.txt
-index eee5d0df..66866f6a 100644
+index 5c35e402..0df52369 100644
 --- a/src/libclient/CMakeLists.txt
 +++ b/src/libclient/CMakeLists.txt
-@@ -482,7 +482,7 @@ foreach(QT_LIB ${QT_LIBS})
+@@ -469,7 +469,7 @@ foreach(QT_LIB ${QT_LIBS})
    target_link_libraries(${LIBCLIENT_NAME} ${QT_LIB})
  endforeach()
  
@@ -119,10 +110,10 @@ index eee5d0df..66866f6a 100644
    target_link_libraries(${LIBCLIENT_NAME} PkgConfig::XCB)
  endif()
 diff --git a/src/libclient/avmodel.cpp b/src/libclient/avmodel.cpp
-index aa477673..ae17bcdc 100644
+index fbc198cb..d97916ab 100644
 --- a/src/libclient/avmodel.cpp
 +++ b/src/libclient/avmodel.cpp
-@@ -50,7 +50,7 @@
+@@ -46,7 +46,7 @@
  #include <string>
  #include <sstream>
  
@@ -131,7 +122,7 @@ index aa477673..ae17bcdc 100644
  #include <xcb/xcb.h>
  #endif
  #ifdef WIN32
-@@ -638,7 +638,7 @@ CbEnumAltTab(HWND hwnd, LPARAM lParam)
+@@ -687,7 +687,7 @@ CbEnumAltTab(HWND hwnd, LPARAM lParam)
  }
  #endif
  
@@ -140,15 +131,15 @@ index aa477673..ae17bcdc 100644
  static xcb_atom_t
  getAtom(xcb_connection_t* c, const std::string& atomName)
  {
-@@ -657,7 +657,7 @@ AVModel::getListWindows() const
+@@ -706,7 +706,7 @@ AVModel::getListWindows() const
  {
      QMap<QString, QVariant> ret {};
  
 -#if defined(Q_OS_UNIX) && !defined(__APPLE__)
 +#if defined(Q_OS_UNIX) && !defined(__APPLE__) && defined(WITH_X11)
      std::unique_ptr<xcb_connection_t, void (*)(xcb_connection_t*)> c(xcb_connect(nullptr, nullptr),
-                                                                      [](xcb_connection_t* ptr) {
-                                                                          xcb_disconnect(ptr);
+                                                                      [](xcb_connection_t* ptr) { xcb_disconnect(ptr); });
+ 
 -- 
 2.34.1
 

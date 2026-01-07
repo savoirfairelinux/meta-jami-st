@@ -1,21 +1,19 @@
-From 7e39a53c4cc669f7beff13861d289523a312c28c Mon Sep 17 00:00:00 2001
+From 783d1c96e631d454b9f4e5b71436e8bc181c41da Mon Sep 17 00:00:00 2001
 From: Thomas Rouleau <thomas.rouleau@savoirfairelinux.com>
-Date: Fri, 14 Jul 2023 16:50:45 -0400
-Subject: [PATCH] Patch: removed reference to Gsettings
+Date: Wed, 7 Jan 2026 09:41:39 +0100
+Subject: [PATCH 2/2] Patch: removed reference to Gsettings
 
 Gsettings might be causingf probleme on embedded system
-
-Change-Id: I57e2b252300d0ec31800b5a83f805db5697d89d4
 ---
- src/app/utilsadapter.cpp | 59 +---------------------------------------
- 1 file changed, 1 insertion(+), 58 deletions(-)
+ src/app/utilsadapter.cpp | 58 +---------------------------------------
+ 1 file changed, 1 insertion(+), 57 deletions(-)
 
 diff --git a/src/app/utilsadapter.cpp b/src/app/utilsadapter.cpp
-index 03c8549e..5aac21f7 100644
+index 4f7439b0..11d00913 100644
 --- a/src/app/utilsadapter.cpp
 +++ b/src/app/utilsadapter.cpp
-@@ -645,17 +645,6 @@ UtilsAdapter::luma(const QColor& color) const
-            < 153 /* .6 * 256 */;
+@@ -646,17 +646,6 @@ UtilsAdapter::luma(const QColor& color) const
+     return (0.2126 * color.red() + 0.7152 * color.green() + 0.0722 * color.blue()) < 153 /* .6 * 256 */;
  }
  
 -#if __has_include(<gio/gio.h>)
@@ -32,7 +30,7 @@ index 03c8549e..5aac21f7 100644
  #if defined(WIN32) && __has_include(<winrt/Windows.Foundation.h>)
  bool
  readAppsUseLightThemeRegistry(bool getValue)
-@@ -696,53 +685,7 @@ readAppsUseLightThemeRegistry(bool getValue)
+@@ -696,52 +685,7 @@ readAppsUseLightThemeRegistry(bool getValue)
  bool
  UtilsAdapter::isSystemThemeDark()
  {
@@ -62,8 +60,7 @@ index 03c8549e..5aac21f7 100644
 -            if (auto* valueCstr = g_settings_get_string(settings, key.c_str())) {
 -                QString value = valueCstr;
 -                if (!value.isEmpty()) {
--                    return value.contains("dark", Qt::CaseInsensitive)
--                           || value.contains("black", Qt::CaseInsensitive);
+-                    return value.contains("dark", Qt::CaseInsensitive) || value.contains("black", Qt::CaseInsensitive);
 -                }
 -            }
 -        }
@@ -79,11 +76,11 @@ index 03c8549e..5aac21f7 100644
 -#endif
 -    return readAppsUseLightThemeRegistry(true);
 -#else
--    qWarning("System theme detection is not implemented or is not supported");
+-    C_WARN << "System theme detection is not implemented or is not supported";
 -    return false;
 -#endif // WIN32
 -#endif // __has_include(<gio/gio.h>)
-+return true;
++    return true;
  }
  
  bool
