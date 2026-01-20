@@ -5,14 +5,14 @@ Subject: [PATCH 2/2] Patch: removed reference to Gsettings
 
 Gsettings might be causingf probleme on embedded system
 ---
- src/app/utilsadapter.cpp | 58 +---------------------------------------
- 1 file changed, 1 insertion(+), 57 deletions(-)
+ src/app/utilsadapter.cpp | 59 +---------------------------------------
+ 1 file changed, 1 insertion(+), 58 deletions(-)
 
 diff --git a/src/app/utilsadapter.cpp b/src/app/utilsadapter.cpp
-index 4f7439b0..11d00913 100644
+index 6017f807..7db6fa19 100644
 --- a/src/app/utilsadapter.cpp
 +++ b/src/app/utilsadapter.cpp
-@@ -646,17 +646,6 @@ UtilsAdapter::luma(const QColor& color) const
+@@ -647,17 +647,6 @@ UtilsAdapter::luma(const QColor& color) const
      return (0.2126 * color.red() + 0.7152 * color.green() + 0.0722 * color.blue()) < 153 /* .6 * 256 */;
  }
  
@@ -30,7 +30,7 @@ index 4f7439b0..11d00913 100644
  #if defined(WIN32) && __has_include(<winrt/Windows.Foundation.h>)
  bool
  readAppsUseLightThemeRegistry(bool getValue)
-@@ -696,52 +685,7 @@ readAppsUseLightThemeRegistry(bool getValue)
+@@ -697,53 +686,7 @@ readAppsUseLightThemeRegistry(bool getValue)
  bool
  UtilsAdapter::isSystemThemeDark()
  {
@@ -66,8 +66,7 @@ index 4f7439b0..11d00913 100644
 -        }
 -    }
 -    return false;
--#else
--#if defined(WIN32) && __has_include(<winrt/Windows.Foundation.h>)
+-#elif defined(WIN32) && __has_include(<winrt/Windows.Foundation.h>)
 -#if WATCHSYSTEMTHEME
 -    if (!settings) {
 -        settings = UISettings();
@@ -75,10 +74,12 @@ index 4f7439b0..11d00913 100644
 -    }
 -#endif
 -    return readAppsUseLightThemeRegistry(true);
+-#elif defined(Q_OS_MACOS) || defined(Q_OS_MAC)
+-    QObject::connect(qApp->styleHints(), &QStyleHints::colorSchemeChanged, this, [this]() { Q_EMIT appThemeChanged(); });
+-    return qApp->styleHints()->colorScheme() == Qt::ColorScheme::Dark;
 -#else
 -    C_WARN << "System theme detection is not implemented or is not supported";
 -    return false;
--#endif // WIN32
 -#endif // __has_include(<gio/gio.h>)
 +    return true;
  }
@@ -86,4 +87,3 @@ index 4f7439b0..11d00913 100644
  bool
 -- 
 2.34.1
-
